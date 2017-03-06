@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import codecs
+import getopt
+import urllib
+import urllib2
+import ConfigParser
+from lxml import etree
+
+def main(config, resource_type, resource):
+
+    if "remote" == resource_type:
+        content = getRemoteFile(resource, config["header"])
+    elif "local" == resource_type:
+        content = getLocalFile(resource)
+    else:
+        errorQuit("resource type not recognized")
+
+    tree = etree.HTML(content)
+
+    for name, xpath in config["xpath"].items():
+        print "-- name : " + name
+        print "-- xpath : " + xpath
+        print "-- result: "
+        try:
+            print tree.xpath(xpath)
+        except Exception as err:
+            log(err, "WARNING")
+        print ""
+
+def getLocalFile(file):
+    if not os.path.exists(file):
+        errorQuit(file + " not exist")
+    f = codecs.open(file, "r", "utf-8")
+    content = f.read()
+    f.close()
+    return content
+
+def getRemoteFile(url, header):
+    req = urllib2.Request(url, None, header)
+    response = urllib2.urlopen(req)
+    content = response.read()
+    return content
+
+def log(msg, level = "notice"):
+    level = level.upper()
+    if "NOTICE" == level:
+        strPre = "\033[1;32m[NOTICE]\033[0m "
+    elif "WARNING" == level:
+        strPre = "\033[1;33m[WARNING]\033[0m "
+    elif "ERROR" == level:
+        strPre = "\033[1;31m[ERROR]\033[0m "
+    elif "DEBUG" == level:
+        strPre = "\033[1;34m[DEBUG]\033[0m "
+    else:
+        strPre = ""
+    logStr = strPre + str(msg)
+    print logStr
+
+def errorQuit(str):
+    log(str, "ERROR")
+    exit(1)
+
+def usage():
+    print """Usage: %s [options] [args] ...
+
+--config    <ARG>       : get xpath & header from config
+ -c         <ARG>         eg. : userconf/section1
+                                userconf/section2
+                                section1    equals to default/section1
+
+--xpath     <ARG>       : get xpath from cmd
+ -x         <ARG>
+
+--remote    <ARG>       : set remote resource
+ -r         <ARG>
+
+--local     <ARG>       : set local resource
+ -l         <ARG>
+
+--help                  : display this usage
+ -h
+""" % (sys.argv[0])
+
+if __name__ == "__main__":
+
+    if len(sys.argv) < 5:
+        usage()
+        exit(1)       
+
+    opt_short = "c:x:r:l:h"
+    opt_long = ["config=", "xpath=", "remote=", "local=", "help"]
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], opt_short, opt_long)
+    except getopt.GetoptError as err:
+        usage()
+        errorQuit(err)
+
+    arg_resource = ""
+    arg_resource_type = ""
+    arg_config_type = ""
+    arg_config_file = ""
+    arg_config_section = ""
+
+    config = {}
+    config["xpath"] = {}
+    config["header"] = {}
+
+    for opt, arg in opts:
+        if opt in ("-c", "--config"):
+            if "" != arg_config_type:
+                errorQuit("config type can only be one of 'file' or 'input'")
+            arg_config_type = "file"
+            tmp = arg.split("/")
+            if 2 == len(tmp):
+                arg_config_file = tmp[0]
+                arg_config_section = tmp[1]
+            elif 1 == len(tmp):
+                arg_config_file = "default"
+                arg_config_section = tmp[0]
+            else:
+                errorQuit("config format not recognized")
+            if '' == arg_config_file or '' == arg_config_section:
+                errorQuit("config format not recognized")
+
+            config_file = os.path.realpath(sys.path[0] + '/../etc/' +  arg_config_file + '.ini')
+            if not os.path.exists(config_file):
+                errorQuit(config_file + ' not exist')
+            try:
+                conf = ConfigParser.ConfigParser()
+                conf.read(config_file)
+            except Exception as err:
+                errorQuit(err)
+
+            if False == conf.has_section(arg_config_section + '_xpath'):
+                errorQuit("config file has no section %s" % arg_config_section + '_xpath')
+
+            for k, v in conf.items(arg_config_section + "_xpath"):
+                config["xpath"][k] = v
+
+            if conf.has_section(arg_config_section + "_header"):
+                for k, v in conf.items(arg_config_section + "_header"):
+                    config["header"][k] = v
+
+        elif opt in ("-x", "--xpath"):
+            if "" != arg_config_type:
+                errorQuit("config type can only be one of 'file' or 'input'")
+            arg_config_type = "input"
+            config["xpath"]["cmd_input"] = arg
+
+        elif opt in ("-r", "--remote"):
+            if "" != arg_resource_type:
+                errorQuit("resource type can only be one of 'remote' or 'local'")
+            arg_resource_type = "remote"
+            arg_resource = arg
+
+        elif opt in ("-l", "--local"):
+            if "" != arg_resource_type:
+                errorQuit("resource type can only be one of 'remote' or 'local'")
+            arg_resource_type = "local"
+            arg_resource = arg
+
+        elif opt in ("-h", "--help"):
+            usage()
+            exit(0)
+
+        else:
+            errorQuit("Option %s not found" % opt)
+
+    if '' == arg_resource_type or '' == arg_resource:
+        errorQuit("resource not set")
+
+    main(config, arg_resource_type, arg_resource)
