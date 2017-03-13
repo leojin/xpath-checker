@@ -36,7 +36,7 @@ Usage: bin/xpath-checker [options] [args] ...
 ```
 ### use personal config file
 ```
-./xpath-checker -c person_file/personal_section -r https://github.com/leojin
+./xpath-checker -c personal_file/personal_section -r https://github.com/leojin
 ```
 ### use xpath from command
 ```
