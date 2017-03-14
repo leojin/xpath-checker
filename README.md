@@ -46,6 +46,8 @@ Usage: bin/xpath-checker [options] [args] ...
 ## result
 ```
 [work@local001 bin]$ ./xpath-checker -c github -r https://github.com/leojin
+----- remote|https://github.com/leojin -----
+
 -- name : name
 -- xpath : id("js-pjax-container")/div/div[1]/div[2]/h1/span[2]/text()
 -- result: 
@@ -55,5 +57,4 @@ Usage: bin/xpath-checker [options] [args] ...
 -- xpath : id("js-pjax-container")/div/div[1]/a/img/@src
 -- result: 
 ['https://avatars3.githubusercontent.com/u/6903906?v=3&s=460']
-
 ```

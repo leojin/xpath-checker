@@ -3,33 +3,38 @@
 
 import os
 import sys
+import zlib
 import codecs
 import getopt
 import urllib
 import urllib2
+import chardet
 import ConfigParser
 from lxml import etree
 
-def main(config, resource_type, resource):
+def main(config, resource):
 
-    if "remote" == resource_type:
-        content = getRemoteFile(resource, config["header"])
-    elif "local" == resource_type:
-        content = getLocalFile(resource)
-    else:
-        errorQuit("resource type not recognized")
+    for res in resource:
+        if "remote" == res[0]:
+            content = getRemoteFile(res[1], config["header"])
+        elif "local" == res[0]:
+            content = getLocalFile(res[1])
+        else:
+            errorQuit("resource type not recognized")
 
-    tree = etree.HTML(content)
+        tree = etree.HTML(content)
 
-    for name, xpath in config["xpath"].items():
-        print "-- name : " + name
-        print "-- xpath : " + xpath
-        print "-- result: "
-        try:
-            print tree.xpath(xpath)
-        except Exception as err:
-            log(err, "WARNING")
-        print ""
+        print "\033[1;32m----- " + res[0] + "|" + res[1] + " -----\033[0m\n"
+
+        for name, xpath in config["xpath"].items():
+            print "-- name : " + name
+            print "-- xpath : " + xpath
+            print "-- result: "
+            try:
+                print tree.xpath(xpath)
+            except Exception as err:
+                log(err, "WARNING")
+            print ""
 
 def getLocalFile(file):
     if not os.path.exists(file):
@@ -43,7 +48,14 @@ def getRemoteFile(url, header):
     req = urllib2.Request(url, None, header)
     response = urllib2.urlopen(req)
     content = response.read()
-    return content
+    gzipped = response.headers.get('Content-Encoding')
+    if gzipped:
+        html = zlib.decompress(content, 16+zlib.MAX_WBITS)
+    else:
+        html = content
+    result = chardet.detect(html)
+    result = html.decode("utf8")
+    return result
 
 def log(msg, level = "notice"):
     level = level.upper()
@@ -99,9 +111,7 @@ if __name__ == "__main__":
         usage()
         errorQuit(err)
 
-    arg_resource = ""
-    arg_resource_type = ""
-    arg_config_type = ""
+    arg_resource = []
     arg_config_file = ""
     arg_config_section = ""
 
@@ -111,9 +121,6 @@ if __name__ == "__main__":
 
     for opt, arg in opts:
         if opt in ("-c", "--config"):
-            if "" != arg_config_type:
-                errorQuit("config type can only be one of 'file' or 'input'")
-            arg_config_type = "file"
             tmp = arg.split("/")
             if 2 == len(tmp):
                 arg_config_file = tmp[0]
@@ -146,22 +153,13 @@ if __name__ == "__main__":
                     config["header"][k] = v
 
         elif opt in ("-x", "--xpath"):
-            if "" != arg_config_type:
-                errorQuit("config type can only be one of 'file' or 'input'")
-            arg_config_type = "input"
             config["xpath"]["cmd_input"] = arg
 
         elif opt in ("-r", "--remote"):
-            if "" != arg_resource_type:
-                errorQuit("resource type can only be one of 'remote' or 'local'")
-            arg_resource_type = "remote"
-            arg_resource = arg
+            arg_resource.append(["remote", arg])
 
         elif opt in ("-l", "--local"):
-            if "" != arg_resource_type:
-                errorQuit("resource type can only be one of 'remote' or 'local'")
-            arg_resource_type = "local"
-            arg_resource = arg
+            arg_resource.append(["local", arg])
 
         elif opt in ("-h", "--help"):
             usage()
@@ -170,7 +168,7 @@ if __name__ == "__main__":
         else:
             errorQuit("Option %s not found" % opt)
 
-    if '' == arg_resource_type or '' == arg_resource:
+    if 0 == len(arg_resource):
         errorQuit("resource not set")
 
-    main(config, arg_resource_type, arg_resource)
+    main(config, arg_resource)
