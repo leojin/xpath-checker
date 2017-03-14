@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import re
 import os
 import sys
 import zlib
@@ -12,7 +13,24 @@ import chardet
 import ConfigParser
 from lxml import etree
 
+def ext_replace(context, str, pattern, rep):
+    if isinstance(str, list):
+        li = str
+    else:
+        li = [str]
+
+    res = []
+
+    for ins in li:
+        result, number = re.subn(pattern, rep, ins)
+        res.append(result)
+
+    return res
+
 def main(config, resource):
+
+    ns = etree.FunctionNamespace(None)
+    ns['replace'] = ext_replace
 
     for res in resource:
         if "remote" == res[0]:
@@ -31,7 +49,12 @@ def main(config, resource):
             print "-- xpath : " + xpath
             print "-- result: "
             try:
-                print tree.xpath(xpath)
+                tmp = tree.xpath(xpath)
+                if isinstance(tmp, list):
+                    for idx, obj in enumerate(tmp):
+                        print str(idx) + " : " + obj
+                else :
+                    print tmp
             except Exception as err:
                 log(err, "WARNING")
             print ""
