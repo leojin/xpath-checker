@@ -44,20 +44,23 @@ def main(config, resource):
 
         print "\033[1;32m----- " + res[0] + "|" + res[1] + " -----\033[0m\n"
 
-        for name, xpath in config["xpath"].items():
-            print "-- name : " + name
-            print "-- xpath : " + xpath
-            print "-- result: "
-            try:
-                tmp = tree.xpath(xpath)
-                if isinstance(tmp, list):
-                    for idx, obj in enumerate(tmp):
-                        print str(idx) + " : " + obj
-                else :
-                    print tmp
-            except Exception as err:
-                log(err, "WARNING")
-            print ""
+        for section, xpath_config in config["xpath"].items():
+            print "\033[1;34m----- tag|" + section + " -----\033[0m\n"
+            for name, xpath in xpath_config.items():
+                print "-- name : " + name
+                print "-- xpath : " + xpath
+                print "-- result: "
+                try:
+                    tmp = tree.xpath(xpath)
+                    if isinstance(tmp, list):
+                        for idx, obj in enumerate(tmp):
+                            print str(idx) + " :",
+                            print obj
+                    else :
+                        print tmp
+                except Exception as err:
+                    log(err, "WARNING")
+                print ""
 
 def getLocalFile(file):
     if not os.path.exists(file):
@@ -103,9 +106,7 @@ def usage():
     print """Usage: %s [options] [args] ...
 
 --config    <ARG>       : get xpath & header from config
- -c         <ARG>         eg. : userconf/section1
-                                userconf/section2
-                                section1    equals to default/section1
+ -c         <ARG>
 
 --xpath     <ARG>       : get xpath from cmd
  -x         <ARG>
@@ -122,7 +123,7 @@ def usage():
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 3:
         usage()
         exit(1)       
 
@@ -136,7 +137,6 @@ if __name__ == "__main__":
 
     arg_resource = []
     arg_config_file = ""
-    arg_config_section = ""
 
     config = {}
     config["xpath"] = {}
@@ -144,39 +144,12 @@ if __name__ == "__main__":
 
     for opt, arg in opts:
         if opt in ("-c", "--config"):
-            tmp = arg.split("/")
-            if 2 == len(tmp):
-                arg_config_file = tmp[0]
-                arg_config_section = tmp[1]
-            elif 1 == len(tmp):
-                arg_config_file = "default"
-                arg_config_section = tmp[0]
-            else:
-                errorQuit("config format not recognized")
-            if '' == arg_config_file or '' == arg_config_section:
-                errorQuit("config format not recognized")
-
-            config_file = os.path.realpath(sys.path[0] + '/../etc/' +  arg_config_file + '.ini')
-            if not os.path.exists(config_file):
-                errorQuit(config_file + ' not exist')
-            try:
-                conf = ConfigParser.ConfigParser()
-                conf.read(config_file)
-            except Exception as err:
-                errorQuit(err)
-
-            if False == conf.has_section(arg_config_section + '_xpath'):
-                errorQuit("config file has no section %s" % arg_config_section + '_xpath')
-
-            for k, v in conf.items(arg_config_section + "_xpath"):
-                config["xpath"][k] = v
-
-            if conf.has_section(arg_config_section + "_header"):
-                for k, v in conf.items(arg_config_section + "_header"):
-                    config["header"][k] = v
+            arg_config_file = arg
 
         elif opt in ("-x", "--xpath"):
-            config["xpath"]["cmd_input"] = arg
+            config["xpath"]["cmd_input"] = {
+                'cmd_input': arg
+            }
 
         elif opt in ("-r", "--remote"):
             arg_resource.append(["remote", arg])
@@ -193,5 +166,30 @@ if __name__ == "__main__":
 
     if 0 == len(arg_resource):
         errorQuit("resource not set")
+
+    if "" == arg_config_file:
+        arg_config_file = "default"
+
+    config_file = os.path.realpath(sys.path[0] + '/../etc/' +  arg_config_file + '.ini')
+    if not os.path.exists(config_file):
+        errorQuit(config_file + ' not exist')
+    try:
+        conf = ConfigParser.ConfigParser()
+        conf.read(config_file)
+    except Exception as err:
+        errorQuit(err)
+
+    for section in conf.sections():
+        if "_header" == section:
+            for k, v in conf.items(section):
+                config["header"][k] = v
+            continue
+        config["xpath"][section] = {}
+        prefix = ""
+        if conf.has_option(section, "_prefix"):
+            prefix = conf.get(section, "_prefix")
+        for k, v in conf.items(section):
+            if "_prefix" != k:
+                config["xpath"][section][k] = prefix + v
 
     main(config, arg_resource)
