@@ -13,6 +13,9 @@ import chardet
 import ConfigParser
 from lxml import etree
 
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 def ext_replace(context, str, pattern, rep):
     if isinstance(str, list):
         li = str
@@ -180,16 +183,18 @@ if __name__ == "__main__":
         errorQuit(err)
 
     for section in conf.sections():
-        if "_header" == section:
-            for k, v in conf.items(section):
-                config["header"][k] = v
+        if "_" == section[0]:
+            if "_header" == section:
+                for k, v in conf.items(section):
+                    config["header"][k] = v
             continue
         config["xpath"][section] = {}
         prefix = ""
         if conf.has_option(section, "_prefix"):
             prefix = conf.get(section, "_prefix")
         for k, v in conf.items(section):
-            if "_prefix" != k:
-                config["xpath"][section][k] = prefix + v
+            if "_" == k[0]:
+                continue;
+            config["xpath"][section][k] = prefix + v
 
     main(config, arg_resource)
