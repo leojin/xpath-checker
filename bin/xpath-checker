@@ -54,7 +54,7 @@ def main(config, resource):
                 print "-- xpath : " + xpath
                 print "-- result: "
                 try:
-                    tmp = tree.xpath(xpath)
+                    tmp = tree.xpath(unicode(xpath))
                     if isinstance(tmp, list):
                         for idx, obj in enumerate(tmp):
                             print str(idx) + " :",
