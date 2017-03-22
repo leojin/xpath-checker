@@ -50,6 +50,8 @@ def main(config, resource):
         for section, xpath_config in config["xpath"].items():
             print "\033[1;34m----- tag|" + section + " -----\033[0m\n"
             for name, xpath in xpath_config.items():
+                if "" == xpath:
+                    continue
                 print "-- name : " + name
                 print "-- xpath : " + xpath
                 print "-- result: "
